@@ -1,4 +1,4 @@
-# **Plugin Name** Plugin
+# **Simscore** Plugin
 
 **Plugin Summary**
 

@@ -3,7 +3,7 @@ en:
     admin:
       site_settings:
         categories:
-          TODO_plugin_name: "Plugin Name"
+          simscore: "Simscore"
   js:
-    discourse_plugin_name:
+    simscore:
       placeholder: placeholder
