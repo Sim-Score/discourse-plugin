@@ -7,3 +7,6 @@ en:
   js:
     simscore:
       placeholder: placeholder
+      calculate: "Calculate SimScore"
+      success: "SimScore analysis completed successfully!"
+      error: "There was an error calculating the SimScore. Please try again."

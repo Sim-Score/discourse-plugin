@@ -1,4 +1,16 @@
-simscore:
+plugins:
   simscore_enabled:
-    default: false
+    default: true
+    client: true
+  simscore_api_key:
+    default: ''
+    secret: true
+    type: string
+  simscore_api_endpoint:
+    default: 'https://simscore-api-dev.fly.dev'
+    secret: false
+    type: string
+  simscore_allowed_groups:
+    default: ''
+    type: group_list
     client: true
