@@ -5,6 +5,11 @@ require "json"
 module Simscore
   class ApiService
     def self.analyze_posts(posts)
+      Rails.logger.info(
+        "SimScore: Analysis started in API service with posts: #{
+          { post_count: posts.size }.to_json
+        }",
+      )
       uri = URI.parse("#{SiteSetting.simscore_api_endpoint}/v1/rank_ideas")
       http = Net::HTTP.new(uri.host, uri.port)
       http.use_ssl = uri.scheme == "https"
@@ -13,17 +18,23 @@ module Simscore
       ideas = []
       posts.each_with_index do |post, post_index|
         # Split post into paragraphs (split by double newline)
-        paragraphs = post.split(/\n\s*\n/).reject(&:blank?)
+        Rails.logger.info(
+          "SimScore: Processing post: #{
+            {
+              post_id: post.id,
+              post_number: post.post_number,
+              author: post.user&.username,
+              post_index: post_index,
+            }.to_json
+          }",
+        )
+        paragraphs = post.raw.split(/\n\s*\n/).reject(&:blank?)
 
         paragraphs.each_with_index do |paragraph, para_index|
           ideas << {
             id: "#{post_index}-#{para_index}",
             idea: paragraph.strip,
-            metadata: {
-              post_number: post_index + 1,
-              paragraph_number: para_index + 1,
-              author: post.user&.username || "unknown",
-            },
+            author_id: post.user&.username || "unknown",
           }
         end
       end
@@ -32,9 +43,22 @@ module Simscore
       request["Content-Type"] = "application/json"
       request["Authorization"] = "Bearer #{SiteSetting.simscore_api_key}"
 
-      request.body = { ideas: ideas, advanced_features: { cluster_names: true } }.to_json
+      request_body = { ideas: ideas }
+      request.body = request_body.to_json
+
+      Rails.logger.info(
+        "SimScore: Sending API request - #{
+          { endpoint: uri.to_s, idea_count: ideas.size, request_body: request_body }.to_json
+        }",
+      )
 
       response = http.request(request)
+
+      Rails.logger.info(
+        "SimScore: Received API response - #{
+          { status: response.code, body: response.body }.to_json
+        }",
+      )
 
       unless response.is_a?(Net::HTTPSuccess)
         raise "SimScore API error: #{response.code} - #{response.body}"
@@ -44,24 +68,30 @@ module Simscore
     end
 
     def self.format_results(results)
+      Rails.logger.info("SimScore: Formatting results - #{{ results: results }.to_json}")
+
       output = ["# SimScore Analysis Results\n\n"]
 
-      # Add top 10 ranked ideas
-      output << "## Top 10 Most Similar Paragraphs\n\n"
-      results["ranked_ideas"]
-        .first(10)
-        .each do |idea|
-          post_num, para_num = idea["id"].split("-").map(&:to_i)
-          score = (idea["similarity_score"] * 100).round(1)
-          author = idea["metadata"]["author"]
+      # Add ranked ideas if available
+      if results["ranked_ideas"].present?
+        output << "## Top 10 Most Similar Paragraphs\n\n"
+        results["ranked_ideas"]
+          .first(10)
+          .each do |idea|
+            post_num, para_num = idea["id"].split("-").map(&:to_i)
+            score = (idea["similarity_score"] * 100).round(1)
+            author = idea["author_id"]
 
-          output << "### Post ##{post_num + 1}, Paragraph #{para_num + 1} (#{score}% similarity)\n"
-          output << "_Author: @#{author}_\n\n"
-          output << "#{idea["idea"]}\n\n"
-        end
+            output << "### Post ##{post_num + 1}, Paragraph #{para_num + 1} (#{score}% similarity)\n"
+            output << "_Author: @#{author}_\n\n"
+            output << "#{idea["idea"]}\n\n"
+          end
+      else
+        output << "No ranked ideas found in the results.\n\n"
+      end
 
       # Add cluster information if available
-      if results["cluster_names"].present?
+      if results["cluster_names"].present? && !results["cluster_names"].nil?
         output << "## Topic Clusters\n\n"
         results["cluster_names"].each do |cluster_id, name|
           # Get only top paragraphs from each cluster

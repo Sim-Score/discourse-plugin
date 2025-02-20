@@ -10,11 +10,15 @@
 
 enabled_site_setting :simscore_enabled
 
+module ::Simscore
+  PLUGIN_NAME = "simscore"
+end
+
+require_relative "lib/simscore/engine"
+
 after_initialize do
-  module ::Simscore
-    PLUGIN_NAME = "simscore"
-  end
-  require_relative "lib/simscore/engine"
+  require_relative "app/controllers/simscore/analyze_controller"
+  require_relative "app/services/simscore/api_service"
 
   Discourse::Application.routes.append { mount ::Simscore::Engine, at: "/simscore" }
 
